@@ -1,0 +1,65 @@
+---
+- name: Install Docker on Ubuntu EC2 instance
+  hosts: dockerhost
+  become: true
+
+  tasks:
+    - name: Update APT package cache
+      apt:
+        update_cache: true
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker’s official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Update APT again after adding Docker repo
+      apt:
+        update_cache: true
+
+    - name: Install Docker Engine
+      apt:
+        name: docker-ce
+        state: latest
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Run NGINX container
+      docker_container:
+        name: nginx
+        image: nginx:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - 80:80
+
+    - name: Verify NGINX is running using curl
+      shell: curl -I http://localhost
+      register: curl_result
+      retries: 3
+      delay: 5
+      until: curl_result.rc == 0
+
+    - name: Print NGINX response
+      debug:
+        var: curl_result.stdout_lines
+

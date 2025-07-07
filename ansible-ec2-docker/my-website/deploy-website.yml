@@ -1,0 +1,33 @@
+---
+- name: Deploy custom website with Docker
+  hosts: dockerhost
+  become: true
+
+  tasks:
+    - name: Ensure destination folder exists
+      file:
+        path: /home/ec2-user/myapp
+        state: directory
+
+    - name: Copy website files to EC2
+      copy:
+        src: .
+        dest: /home/ec2-user/myapp
+        owner: ec2-user
+        group: ec2-user
+        mode: 0755
+
+    - name: Build Docker image
+      community.docker.docker_image:
+        name: mywebsite
+        build:
+          path: /home/ec2-user/myapp
+
+    - name: Run Docker container on port 8080
+      community.docker.docker_container:
+        name: mywebsite
+        image: mywebsite
+        state: started
+        ports:
+          - "8080:80"
+
