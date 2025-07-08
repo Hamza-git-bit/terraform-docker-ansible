@@ -1,4 +1,4 @@
-name: 🚀 Deploy Infrastructure & Website
+name: Deploy Infrastructure and Website
 
 on:
   push:
@@ -10,53 +10,54 @@ env:
 
 jobs:
   deploy:
-    name: Terraform + Ansible Deployment
+    name: Terraform and Ansible Deployment
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⏬ Checkout Repo
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 🔐 Configure AWS Credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: 🧰 Setup Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: 📦 Terraform Init
+      - name: Terraform Init
         working-directory: terraform-ec2-docker
         run: terraform init
 
-      - name: 📐 Terraform Apply
+      - name: Terraform Apply
         working-directory: terraform-ec2-docker
         run: terraform apply -auto-approve
 
-      - name: 🧾 Get EC2 Public IP
+      - name: Get EC2 Public IP
         id: get_ip
         working-directory: terraform-ec2-docker
         run: |
-          echo "INSTANCE_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_ENV
+          INSTANCE_IP=$(terraform output -raw instance_public_ip)
+          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
 
-      - name: 🐍 Install Python and Ansible
+      - name: Install Python and Ansible
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-pip
           pip3 install ansible
 
-      - name: 🗝️ Write SSH Private Key to file
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-
-      - name: 📡 Run Ansible Playbook
+      - name: Run Ansible Playbook
         working-directory: ansible-ec2-docker
         run: |
+          echo "$SSH_PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
           ansible-playbook -i "${{ env.INSTANCE_IP }}," \
             -u ubuntu \
-            --private-key ../private_key.pem \
+            --private-key private_key.pem \
             install-docker.yml
+
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
