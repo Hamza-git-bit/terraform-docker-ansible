@@ -39,15 +39,9 @@ jobs:
         id: get_ip
         working-directory: terraform-ec2-docker
         run: |
-          echo "ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+          IP=$(terraform output instance_public_ip | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}')
+          echo "ip=$IP" >> $GITHUB_OUTPUT
 
-      - name: Run Ansible Playbook
-        working-directory: ansible-ec2-docker
-        run: |
-          ansible-playbook -i "${{ steps.get_ip.outputs.ip }}," \
-            -u ubuntu \
-            --private-key "${{ secrets.SSH_PRIVATE_KEY }}" \
-            install-docker.yml
 
 
 
