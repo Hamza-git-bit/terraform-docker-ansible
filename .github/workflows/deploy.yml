@@ -39,10 +39,10 @@ jobs:
         id: get_ip
         working-directory: terraform-ec2-docker
         run: |
-          INSTANCE_IP=$(terraform output -raw instance_public_ip)
-          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+          IP=$(terraform output -raw instance_public_ip)
+          echo "INSTANCE_IP=$IP" >> $GITHUB_ENV
 
-      - name: Install Python and Ansible
+      - name: Install Ansible and Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-pip
@@ -51,13 +51,10 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ansible-ec2-docker
         run: |
-          echo "$SSH_PRIVATE_KEY" > private_key.pem
-          chmod 600 private_key.pem
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
           ansible-playbook -i "${{ env.INSTANCE_IP }}," \
             -u ubuntu \
-            --private-key private_key.pem \
+            --private-key key.pem \
             install-docker.yml
-
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
