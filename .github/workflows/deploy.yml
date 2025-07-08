@@ -1,4 +1,4 @@
-name: Deploy Infrastructure and Web Server
+name: Deploy Infrastructure and Configure Docker
 
 on:
   push:
@@ -10,18 +10,12 @@ env:
 
 jobs:
   deploy:
-    name: Terraform and Ansible Deployment
+    name: Full EC2 + Ansible Deploy
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-
-      - name: Set up SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/new-hamza-key.pem
-          chmod 600 ~/.ssh/new-hamza-key.pem
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -30,7 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
@@ -41,21 +35,21 @@ jobs:
         working-directory: terraform-ec2-docker
         run: terraform apply -auto-approve
 
-      - name: Get EC2 Public IP
-        id: get_ip
+      - name: Save EC2 Public IP to file
         working-directory: terraform-ec2-docker
-        run: |
-          echo "ip=$(terraform output -raw instance_public_ip)" >> "$GITHUB_OUTPUT"
+        run: terraform output -raw instance_public_ip > ../ansible-ec2-docker/ip.txt
 
-      - name: Install Ansible and Dependencies
+      - name: Setup SSH Key
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/new-hamza-key.pem
+          chmod 600 ~/.ssh/new-hamza-key.pem
 
       - name: Run Ansible Playbook
         working-directory: ansible-ec2-docker
         run: |
-          ansible-playbook -i "${{ steps.get_ip.outputs.ip }}," \
+          sudo apt update && sudo apt install -y ansible
+          ansible-playbook -i "$(cat ip.txt)," \
             -u ubuntu \
             --private-key ~/.ssh/new-hamza-key.pem \
             install-docker.yml
