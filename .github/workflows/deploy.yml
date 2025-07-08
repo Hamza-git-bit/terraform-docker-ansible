@@ -39,12 +39,16 @@ jobs:
         id: get_ip
         working-directory: terraform-ec2-docker
         run: |
-          echo "instance_public_ip=$(terraform output -raw instance_public_ip)" >> terraform_ip.env
-        shell: bash
+          echo "ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
-      - name: Export IP as environment variable
+      - name: Run Ansible Playbook
+        working-directory: ansible-ec2-docker
         run: |
-          cat terraform_ip.env >> $GITHUB_ENV
+          ansible-playbook -i "${{ steps.get_ip.outputs.ip }}," \
+            -u ubuntu \
+            --private-key "${{ secrets.SSH_PRIVATE_KEY }}" \
+            install-docker.yml
+
 
 
 
