@@ -1,4 +1,4 @@
-name: Deploy Infrastructure and Website
+name: Deploy Infrastructure and Web Server
 
 on:
   push:
@@ -17,6 +17,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Set up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/new-hamza-key.pem
+          chmod 600 ~/.ssh/new-hamza-key.pem
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -24,7 +30,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
@@ -39,27 +45,18 @@ jobs:
         id: get_ip
         working-directory: terraform-ec2-docker
         run: |
-          IP=$(terraform output instance_public_ip | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}')
-          echo "ip=$IP" >> $GITHUB_OUTPUT
-
-
-
-
-
+          echo "ip=$(terraform output -raw instance_public_ip)" >> "$GITHUB_OUTPUT"
 
       - name: Install Ansible and Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install ansible
+          sudo apt-get install -y ansible
 
       - name: Run Ansible Playbook
         working-directory: ansible-ec2-docker
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-          ansible-playbook -i "${{ env.INSTANCE_IP }}," \
+          ansible-playbook -i "${{ steps.get_ip.outputs.ip }}," \
             -u ubuntu \
-            --private-key key.pem \
+            --private-key ~/.ssh/new-hamza-key.pem \
             install-docker.yml
 
